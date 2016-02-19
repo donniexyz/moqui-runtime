@@ -400,7 +400,7 @@ ${sri.renderIncludeScreen(.node["@location"], .node["@share-scope"]!)}
           <#t><#if .node["@encode"]!"false" == "true">${sri.renderText(textLocation, textToUse["@template"]!)?html}<#else>${sri.renderText(textLocation, textToUse["@template"]!)}</#if>
           <#if sri.doBoundaryComments() && textToUse["@no-boundary-comment"]?if_exists != "true"><!-- END   render-mode.text[@location=${textLocation}][@template=${textToUse["@template"]?default("true")}] --></#if>
         </#if>
-        <#assign inlineTemplateSource = textToUse.@@text/>
+        <#assign inlineTemplateSource = textToUse.@@text!/>
         <#if inlineTemplateSource?has_content>
           <#t><#if sri.doBoundaryComments() && textToUse["@no-boundary-comment"]?if_exists != "true"><!-- BEGIN render-mode.text[inline][@template=${textToUse["@template"]?default("true")}] --></#if>
           <#if !textToUse["@template"]?has_content || textToUse["@template"] == "true">
@@ -1578,7 +1578,10 @@ a -> p, m -> i, h -> H, H -> h, M -> m, MMM -> M, MMMM -> MM
 </#macro>
 -->
 
-<#macro password><input type="password" class="form-control" name="<@fieldName .node/>" size="${.node.@size!"25"}"<#if .node.@maxlength?has_content> maxlength="${.node.@maxlength}"</#if> id="<@fieldId .node/>"<#if .node?parent["@tooltip"]?has_content> data-toggle="tooltip" title="${ec.resource.expand(.node?parent["@tooltip"], "")}"</#if>></#macro>
+<#macro password>
+    <#assign validationClasses = sri.getFormFieldValidationClasses(.node?parent?parent?parent["@name"], .node?parent?parent["@name"])>
+    <input type="password" name="<@fieldName .node/>" id="<@fieldId .node/>" class="form-control<#if validationClasses?has_content> ${validationClasses}</#if>" size="${.node.@size!"25"}"<#if .node.@maxlength?has_content> maxlength="${.node.@maxlength}"</#if><#if .node?parent["@tooltip"]?has_content> data-toggle="tooltip" title="${ec.resource.expand(.node?parent["@tooltip"], "")}"</#if><#if validationClasses?contains("required")> required</#if>>
+</#macro>
 
 <#macro radio>
     <#assign options = {"":""}/><#assign options = sri.getFieldOptions(.node)/>
