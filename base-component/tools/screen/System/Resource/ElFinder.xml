@@ -13,7 +13,7 @@ along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-1.6.xsd"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.0.xsd"
         default-menu-title="elFinder">
 
     <parameter name="resourceRoot"/>
@@ -37,18 +37,12 @@ along with this software (see the LICENSE.md file). If not, see
     </transition>
 
     <pre-actions>
-        <script>footer_scripts.add("/assets/lib/elfinder-2.0-rc1/js/elfinder.min.js")</script>
-        <script>html_stylesheets.add("/assets/lib/elfinder-2.0-rc1/css/elfinder.min.css")</script>
-        <script>html_stylesheets.add("/assets/lib/elfinder-2.0-rc1/css/theme.css")</script>
-        <script>html_stylesheets.add("/assets/css/elfinder.css")</script>
+        <script>footer_scripts.add("/toolstatic/lib/elfinder/js/elfinder.min.js")</script>
+        <script>html_stylesheets.add("/toolstatic/lib/elfinder/css/elfinder.min.css")</script>
+        <script>html_stylesheets.add("/toolstatic/lib/elfinder/css/theme.css")</script>
     </pre-actions>
     <actions>
-        <set field="rootOptions" from="[mantleContentRoot, 'dbresource://', 'component://webroot']"/>
-        <script><![CDATA[
-            if (ec.tenantId == 'DEFAULT') rootOptions.add('file:runtime')
-            if (ec.tenantId != 'DEFAULT' && (!resourceRoot.contains(':') || resourceRoot.startsWith('file') || resourceRoot.startsWith('classpath')))
-                ec.message.addError("File and classpath resources not allowed in tenant ${ec.tenantId}")
-        ]]></script>
+        <set field="rootOptions" from="[mantleContentRoot, 'dbresource://', 'component://webroot', 'file:runtime']"/>
     </actions>
     <widgets>
         <form-single name="SelectRoot" transition=".">

@@ -13,13 +13,18 @@ along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-1.6.xsd"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.0.xsd"
         default-menu-index="1">
 
-    <parameter name="userId" required="true"/>
+    <parameter name="userId" required="true" from="userId ?: userId_0"/>
 
     <transition name="updateUserAccount"><service-call name="update#moqui.security.UserAccount"/>
         <default-response url="."/></transition>
+    <transition name="updatePassword"><service-call name="org.moqui.impl.UserServices.update#Password"/>
+        <default-response url="."/></transition>
+    <transition name="enableUserAccount"><service-call name="org.moqui.impl.UserServices.enable#UserAccount"/>
+        <default-response url="."/></transition>
+
     <transition name="visitList"><default-response url="../../../Visit/VisitList"/></transition>
     <transition name="visitDetail"><default-response url="../../../Visit/VisitDetail"/></transition>
 
@@ -33,6 +38,8 @@ along with this software (see the LICENSE.md file). If not, see
         <default-response url="."/></transition>
     <transition name="updateUserPreference"><service-call name="update#moqui.security.UserPreference"/>
         <default-response url="."/></transition>
+    <transition name="topicSubscriptions"><service-call name="store#moqui.security.user.NotificationTopicUser"/>
+        <default-response url="."/></transition>
 
     <transition name="releaseTarpitNow">
         <service-call name="update#moqui.security.ArtifactTarpitLock"
@@ -42,7 +49,6 @@ along with this software (see the LICENSE.md file). If not, see
     <actions>
         <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount"/>
 
-        <!-- TODO: limit to locales for tenant -->
         <set field="localeStringList" from="[]"/>
         <iterate list="Locale.getAvailableLocales()" entry="lcl"><script>localeStringList.add([locale:lcl.toString(), name:lcl.getDisplayName(ec.user.locale)])</script></iterate>
         <order-map-list list="localeStringList"><order-by field-name="name"/></order-map-list>
@@ -52,6 +58,9 @@ along with this software (see the LICENSE.md file). If not, see
 
         <entity-find entity-name="moqui.security.UserPreference" list="upList">
             <econdition field-name="userId"/><order-by field-name="preferenceKey"/></entity-find>
+        <entity-find entity-name="moqui.security.user.NotificationTopic" list="notificationTopicList">
+            <econdition field-name="isPrivate" value="N" or-null="true"/>
+            <order-by field-name="description"/></entity-find>
 
         <entity-find entity-name="moqui.security.UserLoginHistory" list="historyList">
             <search-form-inputs default-order-by="-fromDate"/>
@@ -63,10 +72,39 @@ along with this software (see the LICENSE.md file). If not, see
             <econdition field-name="userId"/></entity-find-count>
     </actions>
     <widgets>
-        <!-- TODO: update password form? or better not to allow here? -->
         <container-row>
             <row-col lg="5">
                 <link url="visitList" text="Visits" parameter-map="[userId:userId]"/>
+                <container-dialog id="UpdatePassword" button-text="Change Password">
+                    <form-single name="UpdatePasswordForm" transition="updatePassword">
+                        <field name="userId"><default-field><hidden/></default-field></field>
+                        <field name="oldPassword"><default-field><hidden default-value="ignored"/></default-field></field>
+                        <field name="newPassword"><default-field><password size="20"/></default-field></field>
+                        <field name="newPasswordVerify"><default-field><password size="20"/></default-field></field>
+                        <field name="submitButton"><default-field title="Update"><submit/></default-field></field>
+                    </form-single>
+                </container-dialog>
+                <link url="enableUserAccount" text="Enable Account" parameter-map="[userId:userId]"
+                        condition="userAccount.disabled == 'Y'"/>
+                <container-dialog id="TopicUserDialog" button-text="Topic Subscriptions">
+                    <form-list name="NotificationTopicList" list="notificationTopicList" transition="topicSubscriptions" multi="true">
+                        <row-actions>
+                            <entity-find-one entity-name="moqui.security.user.NotificationTopicUser" value-field="notTopicUser">
+                                <field-map field-name="topic"/><field-map field-name="userId"/></entity-find-one>
+                        </row-actions>
+                        <field name="userId"><default-field><hidden/></default-field></field>
+                        <field name="topic"><default-field><hidden/></default-field></field>
+                        <field name="description"><default-field title="Topic"><display/></default-field></field>
+                        <field name="receiveNotifications" from="notTopicUser?.receiveNotifications ?: receiveNotifications ?: 'Y'"><default-field title="Receive">
+                            <radio><option key="Y"/><option key="N"/></radio>
+                        </default-field></field>
+                        <field name="allNotifications" from="notTopicUser?.allNotifications ?: allNotifications ?: 'N'"><default-field title="All">
+                            <radio><option key="Y"/><option key="N"/></radio>
+                        </default-field></field>
+                        <field name="submitButton"><default-field><submit text="Update"/></default-field></field>
+                    </form-list>
+                </container-dialog>
+
                 <form-single name="UserAccountForm" map="userAccount" transition="updateUserAccount">
                     <field name="userId"><default-field><display/></default-field></field>
                     <field name="username"><default-field><text-line size="20"/></default-field></field>
@@ -77,15 +115,13 @@ along with this software (see the LICENSE.md file). If not, see
                     <field name="requirePasswordChange"><default-field>
                         <drop-down allow-empty="true"><option key="Y"/><option key="N"/></drop-down></default-field></field>
                     <field name="successiveFailedLogins"><default-field title="Failed Logins"><display/></default-field></field>
-                    <field name="disabled"><default-field>
-                        <drop-down allow-empty="true"><option key="Y"/><option key="N"/></drop-down></default-field></field>
+                    <field name="disabled"><default-field><display text="${disabled ?: 'N'}"/></default-field></field>
                     <field name="disabledDateTime"><default-field title="Disabled Date"><display/></default-field></field>
 
                     <field name="locale"><default-field>
                         <drop-down allow-empty="true"><list-options list="localeStringList" key="${locale}" text="${locale} - ${name}"/></drop-down>
                     </default-field></field>
                     <field name="timeZone"><default-field>
-                        <!-- TODO: limit time zones to tenant zones -->
                         <drop-down allow-empty="true"><list-options list="new TreeSet(TimeZone.getAvailableIDs().collect())"/></drop-down>
                     </default-field></field>
 
@@ -100,14 +136,14 @@ along with this software (see the LICENSE.md file). If not, see
                             <form-single name="CreateUserGroupMember" transition="createUserGroupMember">
                                 <field name="userId"><default-field><hidden/></default-field></field>
                                 <field name="userGroupId"><default-field title="Group">
-                                    <drop-down style="chosen-wider">
+                                    <drop-down>
                                         <entity-options key="${userGroupId}" text="UserGroupNameTemplate">
                                             <entity-find entity-name="moqui.security.UserGroup">
                                                 <order-by field-name="description"/></entity-find>
                                         </entity-options>
                                     </drop-down>
                                 </default-field></field>
-                                <field name="fromDate" entry-name="ec.user.nowTimestamp"><default-field><date-time/></default-field></field>
+                                <field name="fromDate" from="ec.user.nowTimestamp"><default-field><date-time/></default-field></field>
                                 <field name="submitButton"><default-field title="Add"><submit/></default-field></field>
                             </form-single>
                         </container-dialog>
@@ -154,6 +190,7 @@ along with this software (see the LICENSE.md file). If not, see
                     </box-body>
                 </container-box>
 
+                <!-- TODO: consider moving this to another screen -->
                 <label text="Login History" type="h5"/>
                 <form-list name="HistoryList" list="historyList" skip-form="true">
                     <field name="fromDate">
